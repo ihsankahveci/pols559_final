@@ -1,0 +1,201 @@
+---
+title: "Appendix A"
+author: "Ihsan Kahveci"
+date: "1/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+## Load libraries
+
+library(kableExtra)
+library(knitr)
+library(lubridate)
+library(stm)
+library(stmprinter)
+library(tidytext) #better visualizations for stm
+library(tidystm)
+library(tidyverse)
+
+select = dplyr::select #to solve the conflict between MASS::select
+
+```
+
+```{r, message=FALSE}
+holy_dates = load(file = "../preprocessing/holy_dates.RData")
+rates = read_csv("../preprocessing/USD_TRY Historical Data.csv")
+sermons_raw = read_csv("appendix.csv")
+sermons_raw %>% summary 
+```
+
+```{r}
+sermons =
+  sermons_raw %>% 
+  left_join(rates, by="date") %>% 
+  mutate( 
+    ramadan = ifelse(date %within% ramadan_dates,1,0),
+    sacrifice = ifelse(date %within% sacrifice_dates,1,0)) %>%
+  select(date, price, ramadan, sacrifice, original, translated)
+```
+
+```{r}
+processed <- textProcessor(sermons$original, metadata=sermons, 
+                           language = "en", stem = F) #citation 
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh=seq(from = 1, to = 100, by = 20))
+
+```
+
+```{r}
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta,
+                     upper.thresh = 100, lower.thresh = 20)
+docs <- out$documents
+vocab <- out$vocab
+meta  <-out$meta
+```
+
+```{r}
+storage = searchK(out$documents, out$vocab, data = out$meta,
+            K = 5:50,  
+            prevalence = ~s(date) + price + ramadan + sacrifice,  
+            seed = 57,
+            verbose =  F)
+```
+
+```{r}
+plot(storage)
+plot(storage$results$K, storage$results$exclus, ylab = 'Exclusivity', xlab = 'Topics')
+plot(storage$results$K, storage$results$semcoh, ylab = 'Semantic Coherence', xlab = 'Topics')
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+stm_models = manyTopics(out$documents, out$vocab, data = out$meta,
+                       K = 10:20, 
+                       prevalence = ~s(date) + price + ramadan + sacrifice, 
+                       seed = 57, verbose = F, init.type = "Spectral")
+```
+
+```{r}
+k_result = tibble(
+  K = map_dbl(stm_models$semcoh, length),
+  stmObj = stm_models$out,
+  semantic_coherence = stm_models$semcoh,
+  exclusivity = stm_models$exclusivity)
+```
+
+
+
+```{r}
+k_result %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  mutate(K = as.factor(K),
+         semantic_coherence = map_dbl(semantic_coherence, mean), 
+         exclusivity = map_dbl(exclusivity, mean)) %>% 
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence (averages)",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity") + 
+  theme_light() + 
+  geom_label(aes(label=K))
+
+```
+
+
+```{r}
+k_result %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  filter(K %in% c(14,15,19)) %>%
+  unnest(cols = c(exclusivity, semantic_coherence)) %>%
+  mutate(K = as.factor(K)) %>%
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity") + 
+  theme_light()
+```
+```{r}
+print_models(stm_models ,texts = sermons$original)
+```
+
+
+```{r}
+#stm model with 17 topics
+stm17 = stm(out$documents, out$vocab, data = out$meta,
+            K = 17,  
+            prevalence = ~s(date) + price + ramadan + sacrifice,  
+            seed = 57,
+            verbose =  F)
+
+par(cex=0.6)
+plot(stm17,  n=7)
+topicQuality(stm17, documents = out$documents)
+```
+```{r}
+out$meta$date = as.numeric(out$meta$date - min(out$meta$date))
+
+fit17 <- estimateEffect(~s(date) + price + ramadan + sacrifice , 
+                         stm17,  meta = out$meta, uncertainty = "Global")
+```
+
+```{r}
+summary(fit17)
+```
+
+```{r}
+processed2 <- textProcessor(sermons$translated, metadata=sermons, 
+                           language = "en", stem = F) #citation 
+
+out2 <- prepDocuments(processed2$documents, processed2$vocab, processed2$meta,
+                     upper.thresh = 100, lower.thresh = 20)
+docs2 <- out2$documents
+vocab2 <- out2$vocab
+meta2 <- out2$meta
+```
+
+```{r}
+#stm model with 17 topics
+test17 = stm(docs2, vocab2, data = meta2,
+            K = 17,  
+            prevalence = ~s(date) + price + ramadan + sacrifice,  
+            seed = 57,
+            verbose =  F)
+
+par(cex=0.6)
+plot(test17,  n=7)
+topicQuality(test17, documents = out2$documents)
+```
+
+```{r}
+out2$meta$date = as.numeric(out2$meta$date - min(out2$meta$date))
+
+pred17 <- estimateEffect(~s(date) + price + ramadan + sacrifice , 
+                         test17,  meta = meta2, uncertainty = "Global")
+```
+
+
+
+
+```{r}
+plot(pred17, "date", method = "continuous", topics = c(16), ci.level = 0.95,
+     model = test17, printlegend = TRUE, xaxt = "n", xlab = "Time (2008)", 
+     labeltype = "custom", custom.labels = c("nationalism"))
+
+monthseq <- seq(from = as.Date("2007-01-01"),
+                to = as.Date("2020-12-01"), by = "month")
+monthnames <- lubridate::year(monthseq)
+
+axis(1,at = as.numeric(monthseq) - min(as.numeric(monthseq)), 
+labels = monthnames, padj = 0)
+```
+

@@ -1,0 +1,277 @@
+---
+title: "Research Report"
+subtitle: "Example"
+author: 
+-name: Ihsan Kahveci
+-affiliation: University of Washington
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_caption: yes
+bibliography: references.bib
+
+---
+
+```{r setup, include=FALSE}
+## Set knitr options here
+
+knitr::opts_chunk$set(echo = FALSE,
+                      comment = NA, 
+                      cache = TRUE,
+                      warning = FALSE,
+                      message = FALSE, 
+                      cache.lazy = FALSE)
+
+```
+
+```{css, echo=FALSE}
+caption {
+      color: black;
+      font-weight: bold;
+      font-size: 1.0em;}
+
+```
+
+```{r, message=FALSE}
+## Load libraries
+
+library(kableExtra)
+library(knitr)
+library(stm)
+library(stmprinter)
+library(tidytext) #better visualizations for stm
+library(tidystm)
+library(tidyverse)
+
+select = dplyr::select #to solve the conflict between MASS::select
+
+```
+
+
+
+```{r, message=FALSE}
+sermons = read_csv("sermons_final.csv") %>% drop_na()
+sermons %>% summary 
+```
+
+
+
+```{r}
+sermons %>%
+  group_by(year=lubridate::year(date)) %>% 
+  count() %>%
+  t() %>%
+  knitr::kable() %>% kableExtra::kable_classic_2()
+```
+
+```{r}
+sermons %>%
+  group_by(location) %>% 
+  count() %>%
+  knitr::kable() %>% kableExtra::kable_classic_2()
+```
+
+Processing the text for stm:
+
+```{r}
+processed <- textProcessor(sermons$translated, metadata=sermons, 
+                           language = "en", stem = F) #citation 
+                            
+```
+
+```{r}
+plotRemoved(processed$documents, lower.thresh=seq(from = 1, to = 100, by = 20))
+```
+
+```{r}
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta,
+                     upper.thresh = 100, lower.thresh = 20)
+docs <- out$documents
+vocab <- out$vocab
+meta  <- out$meta
+meta$date <- as.numeric(meta$date - min(meta$date))
+
+```
+
+
+
+
+The formula specifies the nature of the linear model. On the left hand-side we use a vector of integers to indicate the topics to be included as outcome variables. If left blank then the default of all topics is used. On the right hand-side we can specify a linear model of covariates including standard transformations. Thus the model 2:4 ~ var1 + s(var2) would indicate that we want to run three regressions on Topics 2, 3 and 4 with predictor variables var1 and a b-spline transformed var2. We encourage the use of spline functions for non-linear transformations of variables.
+
+The function can handle factors and numeric variables. Dates should be converted to numeric variables before analysis
+
+```{r}
+sermons %>% 
+  ggplot(aes(date, price)) +
+  geom_line() + 
+  geom_smooth() + 
+  labs(x = "Date (Year)", 
+       y = "Price (USD/TRY)", 
+       title = "Relationship between Price and Date")
+```
+
+
+```{r}
+sermons %>% 
+  ggplot(aes(date, casualty)) +
+  geom_line()
+```
+
+
+
+Finding the best number of topic for the stm from 5 to 50 topics:
+
+```{r, eval=FALSE, cache=TRUE}
+#Plotting Results. 10-15 Topics seems to be the best option. Also looked at topics to see if they made sense.
+storage <- load("hyak/storage.RData")
+plot(storage)
+plot(storage$results$K, storage$results$exclus, ylab = 'Exclusivity', xlab = 'Topics')
+plot(storage$results$K, storage$results$semcoh, ylab = 'Semantic Coherence', xlab = 'Topics')
+```
+
+
+
+
+```{r, cache=TRUE, message=FALSE, eval=FALSE}
+stm_models = manyTopics(out$documents, out$vocab, data = out$meta,
+                       K = 10:15, 
+                       prevalence =  ~s(date) + word_count + price + ramadan + sacrifice, 
+                       seed = 57, verbose = F, init.type = "Spectral")
+```
+
+```{r}
+stm_models = stm_10.15
+```
+
+
+
+```{r}
+k_result = tibble(
+  K = map_dbl(stm_models$semcoh, length),
+  stmObj = stm_models$out,
+  semantic_coherence = stm_models$semcoh,
+  exclusivity = stm_models$exclusivity)
+```
+
+
+
+```{r}
+k_result %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  mutate(K = as.factor(K),
+         semantic_coherence = map_dbl(semantic_coherence, mean), 
+         exclusivity = map_dbl(exclusivity, mean)) %>% 
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence (averages)",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity") + 
+  theme_light()
+
+```
+
+```{r}
+k_result %>%
+  select(K, exclusivity, semantic_coherence) %>%
+  filter(K %in% c(8,12,13)) %>%
+  unnest(cols = c(exclusivity, semantic_coherence)) %>%
+  mutate(K = as.factor(K)) %>%
+  ggplot(aes(semantic_coherence, exclusivity, color = K)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(x = "Semantic coherence",
+       y = "Exclusivity",
+       title = "Comparing exclusivity and semantic coherence",
+       subtitle = "Models with fewer topics have higher semantic coherence for more topics, but lower exclusivity") + 
+  theme_light()
+ 
+```
+
+As a result of goodness of fit measures, I narrowed to decision of K to either 11 or 13. Qualitatively inspecting the topics and close 
+reading of relevant documents, I decided to move forward with 11/13 topics.  The detailed report of topic qualities and relevant documents can be found in the Appendix. 
+
+
+
+```{r}
+print_models(stm_models, texts = sermons$translatedText)
+```
+
+The topics that are my focal variables are very stable among different K selection. As seen in the Appendix, Nationalism, Trade and Holy Months are observed on all of the models. The selection of 12-topic model as the best involves maximizing the semantic coherency without sacrificing too much exclusivity, and minimizing the error occurred in the clustering of other topics. 
+
+
+```{r}
+#stm model with 12 topics
+stm12 = stm(docs, vocab, data = meta,
+            K = 12,  
+            prevalence = ~s(date) + casualty + price + ramadan + location,  
+            seed = 57,
+            verbose =  F)
+
+par(cex=0.6)
+plot(stm12,  n=7)
+topicQuality(stm12, documents = out$documents)
+```
+
+```{r}
+toLDAvis(stm12, docs = docs)
+```
+
+
+### Estimating Effects
+
+```{r}
+fit12 <- estimateEffect(~s(date) + casualty + price + ramadan + location , 
+                         stm12,  meta = out$meta, uncertainty = "Global")
+
+```
+
+
+```{r}
+plot(fit12, "date", method = "continuous", topics = c(7), ci.level = 0.95,
+     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "Time (2008)", 
+     labeltype = "custom", custom.labels = c("nationalism"))
+
+monthseq <- seq(from = as.Date("2001-01-01"),
+                to = as.Date("2020-12-01"), by = "year")
+monthnames <- lubridate::year(monthseq)
+
+axis(1,at = as.numeric(monthseq) - min(as.numeric(monthseq)), 
+labels = monthnames, padj = 0)
+```
+```{r}
+plot(fit12, "price", method = "continuous", topics = c(8), ci.level = 0.9,
+     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "price", 
+     labeltype = "custom", custom.labels = c("trade"))
+```
+```{r}
+plot(fit12, "casualty", method = "continuous", topics = c(7), ci.level = 0.9,
+     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "casualty", 
+     labeltype = "custom", custom.labels = c("nationalism"))
+```
+
+```{r}
+par(cex=0.7)
+plot(fit12, "ramadan", method = "difference", topics = c(1,4,6,8,9,10),
+model = stm12, printlegend = TRUE, cov.value1 = 1, cov.value2 = 0)
+```
+
+```{r}
+par(cex=0.6)
+plot(fit12, "location", method = "difference", topics = c(2,3,5,6),
+model = stm12, printlegend = TRUE, cov.value1 = "ankara", cov.value2 = "istanbul")
+```
+
+
+```{r}
+summary(fit12)
+```
+
+
+
+```{r}
+save.image("cache.RData")
+```
+

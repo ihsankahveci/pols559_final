@@ -1,0 +1,111 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+```
+
+```{r}
+rates = 
+  read_csv("preprocessing/USD_TRY Historical Data.csv")
+```
+
+
+
+
+
+
+```{r}
+rates %>% 
+  filter(wday(date) == 6) %>% 
+  write_csv("preprocessing/rates_grouped.csv")
+```
+
+
+```{r}
+sermons = 
+  sermons %>% 
+  mutate(id = 1:nrow(sermons), .before=date)
+```
+```{r}
+head(sermons)
+```
+
+
+
+
+```{r}
+test = 
+  fuzzy_left_join(
+  sermons, conflict,
+  by = c(
+    "date" = "start",
+    "date" = "end"
+    ),
+  match_fun = list(`>=`, `<=`)
+  ) 
+```
+
+
+```{r}
+final = test %>% 
+  group_by(id, date,location, translated) %>%
+  summarize(casualty = sum(casualty.y)) %>%
+  mutate(casualty = ifelse(is.na(casualty), 0, casualty)) 
+```
+
+```{r}
+casualty = 0
+for (i in 1:nrow(sermons)){
+  casualty = 0
+  for (j in 1:nrow(conflict)){
+    casualty = casualty + conflict$casualty[j]
+    if(sermons$date[i] %within% conflict$date_int[j]){
+      sermons$casualty[i] = casualty
+      print(paste(sermons$date[i], casualty, sep = "="))
+    }
+  else{
+    sermons$casualty[i] = 0
+    }
+  }
+}
+```
+
+```{r}
+sermons %>% 
+  mutate(casualty = ifelse(date %within% conflict$date_int, 1, 0))
+```
+
+
+```{r}
+conflict %>% 
+  group_by(lubridate::month(date)) %>%
+  summarize(total = sum(casualty))
+```
+
+
+```{r}
+sermons %>% 
+  filter(is.na(price)) %>%
+  distinct(date) %>%
+  select(date) %>%
+  kable() %>%
+  kable_paper()
+```
+
+
+
+```{r}
+sermons %>% 
+  group_by(lubridate::year(date)) %>%
+  count()
+```
+
+
+
+

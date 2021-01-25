@@ -1,0 +1,78 @@
+---
+title: "Data Cleaning and Translation"
+output: html_notebook
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+#library(cld2) #for language detection
+library(googleLanguageR)
+library(knitr)
+library(kableExtra)
+select = dplyr::select #to solve the conflict between MASS::select
+
+```
+
+```{r}
+gl_auth("/Users/ihsankahveci/Desktop/Friday Sermons/pols559_final_data/api-keys/Friday Sermons-848d642c4b29.json")
+text <- "to administer medicine to animals is frequently a very difficult matter, and yet sometimes it's necessary to do so"
+gl_translate(text, target = "tr")
+
+```
+
+```{r,message=FALSE}
+sermons_raw = read_csv("../preprocessing/sermons_raw.csv") 
+sermons_raw %>%head(5)
+
+```
+
+```{r}
+#removing arabic letters from the texts
+reg1 = "[ء-ي]"
+reg2 = "[\u0600-\u06FF]"
+sermons_clean <- 
+  sermons_raw %>% 
+  select(-title) %>% 
+  mutate(content = str_remove_all(content, reg2))
+
+```
+
+
+
+The result of gl_translate is a data frame hence we pull translatedText out of it.
+
+```{r}
+sermons_translated <- 
+  sermons_clean %>% 
+  mutate(translated = 
+           gl_translate(content, target = "en", source = "tr", format = "html") %>%
+           pull(translatedText))
+
+```
+
+
+
+
+```{r}
+sermons_translated %>% 
+  sample_n(20) %>% 
+  select(content, translated) %>% 
+  knitr::kable() %>%
+  kableExtra::kable_styling()
+```
+
+
+```{r}
+#removing arabic letters from the texts
+reg1 = "[ء-ي]"
+reg2 = "[\u0600-\u06FF]"
+sermons_translated_clean <- 
+  sermons_translated %>% 
+  mutate(translated = str_remove_all(translated, reg2))
+
+```
+
+```{r}
+write_csv(sermons_translated_clean, "sermons_translated.csv")
+```
+

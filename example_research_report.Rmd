@@ -1,0 +1,99 @@
+---
+title: "Research Report"
+subtitle: "Example"
+author: 
+- name: Zack W. Almquist
+  affiliation: University of Washington
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_caption: yes
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+## Set knitr options here
+knitr::opts_chunk$set(echo = TRUE,
+                      comment = NA, 
+                      cache = TRUE,
+                      warning = FALSE,
+                      message = FALSE, 
+                      cache.lazy = FALSE
+                      )
+
+```
+
+```{r echo=FALSE}
+library(knitr)
+#Determine the output format of the document
+outputFormat   = opts_knit$get("rmarkdown.pandoc.to")
+
+#Figure and Table Caption Numbering, for HTML do it manually
+capTabNo = 1; capFigNo = 1;
+
+#Function to add the Table Number
+capTab = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Table ",capTabNo,". ",x)
+    capTabNo <<- capTabNo + 1
+  }; x
+}
+
+#Function to add the Figure Number
+capFig = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Figure ",capFigNo,". ",x)
+    capFigNo <<- capFigNo + 1
+  }; x
+}
+```
+
+```{r libraries, message=FALSE,warning=FALSE,results='hide'}
+library(tidyverse)
+library(CoCHomeless)
+data(CoC_2017)
+```
+
+
+## Introduction
+
+@almquist2020connecting
+
+@almquist2020large
+
+## Data
+
+```{r, cache=TRUE, fig.width=5, fig.cap=capFig("Continuum of Care Homeless Counts for the State of Washington in 2017."), fig.asp=1, fig.align="center",warning=FALSE}
+#devtools::install_github("SSDALab/CoCHomeless")
+CoC_2017<-CoC_2017[which(CoC_2017$st=='WA'),]
+map_data <- ggplot2::fortify(CoC_2017, region = "cocnum")
+
+df<-data.frame(long=coordinates(CoC_2017)[,1],
+               lat=coordinates(CoC_2017)[,2],
+               totalhomeless=CoC_2017$totalhomeless,cocnum=CoC_2017$cocnum)
+coords <- ggplot2::fortify(df,region="cocnum")
+
+ggplot(coords, aes(map_id = cocnum)) + #"id" is col in your df, not in the map object 
+  geom_map(aes(fill = totalhomeless), colour= "grey", map = map_data) +
+  expand_limits(x = map_data$long, y = map_data$lat) +
+  scale_fill_gradient(high = "red", low = "white", 
+                      guide = "colorbar",trans='log10',
+                      labels = scales::comma) +
+  #geom_text(aes(label = name, x = long, y = lat)) + #add labels at centroids
+  labs(x = "Longitude", y = "Latitude", title = "Washington State Total Homeless Population, 2017") +
+  theme_bw()+
+  theme(legend.position = "bottom",legend.text = element_text(size=5))+
+  labs(fill = "Total Homeless")
+
+```
+
+## Methods
+
+## Analysis
+
+## Discussion
+
+## References
