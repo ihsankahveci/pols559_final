@@ -1,8 +1,8 @@
 library(stm)
 library(readr)
 
-setwd("../pols559_final/")
-sermons = read_csv("sermons_final.csv")
+
+sermons = read_csv("../sermons_final.csv")
 
 
 #preprocessing the text
