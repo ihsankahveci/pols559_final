@@ -1,7 +1,8 @@
 library(stm)
 library(readr)
 
-sermons = read_csv("../pols559_final/sermons_final.csv")
+setwd("../pols559_final/")
+sermons = read_csv("sermons_final.csv")
 
 
 #preprocessing the text
@@ -13,7 +14,7 @@ out <- prepDocuments(processed$documents, processed$vocab, processed$meta,
 docs <- out$documents
 vocab <- out$vocab
 meta  <- out$meta
-meta$date <- as.numeric(meta$date - min(meta$date))
+meta$date <- as.numeric(meta$date) - min(as.numeric(meta$date))
 
 #finding the optimal number of K
 storage <- searchK(docs, vocab, data = meta,
