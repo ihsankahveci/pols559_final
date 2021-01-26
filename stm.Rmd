@@ -53,7 +53,7 @@ select = dplyr::select #to solve the conflict between MASS::select
 
 
 ```{r, message=FALSE}
-sermons = read_csv("sermons_final.csv") %>% drop_na()
+sermons = read_csv("sermons_final.csv") 
 sermons %>% summary 
 ```
 
@@ -85,6 +85,9 @@ processed <- textProcessor(sermons$translated, metadata=sermons,
 ```{r}
 plotRemoved(processed$documents, lower.thresh=seq(from = 1, to = 100, by = 20))
 ```
+```{r}
+as.
+```
 
 ```{r}
 out <- prepDocuments(processed$documents, processed$vocab, processed$meta,
@@ -107,7 +110,6 @@ The function can handle factors and numeric variables. Dates should be converted
 sermons %>% 
   ggplot(aes(date, price)) +
   geom_line() + 
-  geom_smooth() + 
   labs(x = "Date (Year)", 
        y = "Price (USD/TRY)", 
        title = "Relationship between Price and Date")
@@ -117,9 +119,13 @@ sermons %>%
 ```{r}
 sermons %>% 
   ggplot(aes(date, casualty)) +
-  geom_line()
+  geom_line() + 
+  geom_smooth()
 ```
 
+```{r}
+cor(sermons$price, sermons$ramadan)
+```
 
 
 Finding the best number of topic for the stm from 5 to 50 topics:
@@ -204,34 +210,35 @@ The topics that are my focal variables are very stable among different K selecti
 
 ```{r}
 #stm model with 12 topics
-stm12 = stm(docs, vocab, data = meta,
-            K = 12,  
+stm30 = stm(docs, vocab, data = meta,
+            K = 30,  
             prevalence = ~s(date) + casualty + price + ramadan + location,  
             seed = 57,
             verbose =  F)
 
 par(cex=0.6)
-plot(stm12,  n=7)
-topicQuality(stm12, documents = out$documents)
+plot(stm30,  n=7)
+topicQuality(stm30, documents = out$documents)
 ```
 
 ```{r}
-toLDAvis(stm12, docs = docs)
+toLDAvis(stm30, docs = docs)
 ```
 
-
+9,20,27
 ### Estimating Effects
 
+
 ```{r}
-fit12 <- estimateEffect(~s(date) + casualty + price + ramadan + location , 
-                         stm12,  meta = out$meta, uncertainty = "Global")
+fit30 <- estimateEffect(~s(date) + casualty + price + ramadan + location , 
+                         stm30,  meta = meta, uncertainty = "Global")
 
 ```
 
 
 ```{r}
-plot(fit12, "date", method = "continuous", topics = c(7), ci.level = 0.95,
-     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "Time (2008)", 
+plot(fit30, "date", method = "continuous", topics = c(20), ci.level = 0.95,
+     model = stm30, printlegend = TRUE, xaxt = "n", xlab = "Time (2001-2020)", 
      labeltype = "custom", custom.labels = c("nationalism"))
 
 monthseq <- seq(from = as.Date("2001-01-01"),
@@ -242,20 +249,20 @@ axis(1,at = as.numeric(monthseq) - min(as.numeric(monthseq)),
 labels = monthnames, padj = 0)
 ```
 ```{r}
-plot(fit12, "price", method = "continuous", topics = c(8), ci.level = 0.9,
-     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "price", 
+plot(fit30, "price", method = "continuous", topics = c(27, 20), ci.level = 0.95,
+     model = stm30, printlegend = TRUE, xaxt = "n", xlab = "price", 
      labeltype = "custom", custom.labels = c("trade"))
 ```
 ```{r}
-plot(fit12, "casualty", method = "continuous", topics = c(7), ci.level = 0.9,
-     model = stm12, printlegend = TRUE, xaxt = "n", xlab = "casualty", 
+plot(fit30, "casualty", method = "continuous", topics = c(20), ci.level = 0.95,
+     model = stm30, printlegend = TRUE, xaxt = "n", xlab = "casualty", 
      labeltype = "custom", custom.labels = c("nationalism"))
 ```
 
 ```{r}
 par(cex=0.7)
 plot(fit12, "ramadan", method = "difference", topics = c(1,4,6,8,9,10),
-model = stm12, printlegend = TRUE, cov.value1 = 1, cov.value2 = 0)
+model = stm30, printlegend = TRUE, cov.value1 = 1, cov.value2 = 0)
 ```
 
 ```{r}
@@ -266,7 +273,7 @@ model = stm12, printlegend = TRUE, cov.value1 = "ankara", cov.value2 = "istanbul
 
 
 ```{r}
-summary(fit12)
+summary(fit30)
 ```
 
 
