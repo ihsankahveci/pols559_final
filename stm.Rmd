@@ -81,7 +81,7 @@ Processing the text for stm:
 
 ```{r}
 processed <- textProcessor(sermons$translated , metadata=sermons, 
-                           language = "en", stem = T) #citation 
+                           language = "en", stem = F) #citation 
                             
 ```
 
@@ -214,9 +214,9 @@ The topics that are my focal variables are very stable among different K selecti
 ```{r}
 #stm model with 12 topics
 stm30 = stm(docs, vocab, data = meta,
-            K = 17,  
-            prevalence = ~turkish + kurdish + price  + ramadan + location + sacrifice,  
-            seed = 57,
+            K = 30 ,  
+            prevalence = ~turkish + kurdish + price  + ramadan + sacrifice,  
+            seed = 123,
             verbose =  F)
 
 par(cex=0.6)
@@ -224,17 +224,24 @@ plot(stm30,  n=10)
 topicQuality(stm30, documents = out$documents)
 ```
 ```{r}
-tidy = tidy(stm30, matrix = "gamma", document_names = sermons$date)
+tidy = tidy(stm30, matrix = "gamma", document_names = sermons$date) %>% 
+  left_join(sermons, by=c("document"="date"))
+
 ```
 
 ```{r}
 tidy %>% 
   mutate(topic = as.factor(topic)) %>%
-  filter(topic %in% c(12, 15) & gamma > 0.3) %>% 
+  filter(topic %in% c(18,20,29) & gamma > 0.05) %>% 
   ggplot(aes(document, gamma, color=topic)) + 
   geom_point() + 
-  geom_smooth()
+  geom_smooth(alpha=0.2) + 
+  scale_color_discrete(name="Topic\nPrevalance",
+                         breaks=c(18, 20, 29),
+                         labels=c("Teror", "Martydom", "Racism"))
+
 ```
+
 
 ```{r}
 toLDAvis(stm30, docs = docs)
@@ -245,7 +252,7 @@ toLDAvis(stm30, docs = docs)
 
 
 ```{r}
-fit30 <- estimateEffect(~ turkish + kurdish + ramadan + sacrifice + location + price,
+fit30 <- estimateEffect(~ turkish + kurdish + ramadan + price ,
                          stm30,  meta = meta, uncertainty = "Global")
 
 ```

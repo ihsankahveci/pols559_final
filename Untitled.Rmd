@@ -11,17 +11,36 @@ library(lubridate)
 ```
 
 ```{r}
-rates = 
-  read_csv("preprocessing/USD_TRY Historical Data.csv")
+conflict = 
+  read_csv("../pols559_final_data/conflict.csv")
+```
+
+```{r}
+conflict %>% 
+  filter(date>"2001-01-05" & date<"2020-09-04") %>% 
+  mutate(date2 = ceiling_date(date, unit = "week", week_start = 5), 
+         wday = wday(date2, label = T)) %>%
+  group_by(date = date2) %>%
+  summarise(turkish = sum(turkish), 
+            kurdish = sum(kurdish)) %>% 
+  write_csv("preprocessing/conflict_grouped.csv")
+```
+```{r}
+unique(conflict$date2) %>% length()
+```
+
+
+
+```{r}
+sermons %>% summary()
 ```
 
 
 
 
 
-
 ```{r}
-rates %>% 
+conflict %>% 
   filter(wday(date) == 6) %>% 
   write_csv("preprocessing/rates_grouped.csv")
 ```
