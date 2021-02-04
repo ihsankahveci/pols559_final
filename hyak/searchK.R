@@ -17,7 +17,7 @@ meta  <- out$meta
 
 #finding the optimal number of K
 storage <- searchK(docs, vocab, data = meta,
-                   K = 3,  
+                   K = 3:50,  
                    prevalence = ~turkish + kurdish + price + location + ramadan + sacrifice,  
                    seed = 57, cores=8,
                    verbose=T)
