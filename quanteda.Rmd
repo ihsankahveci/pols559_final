@@ -1,0 +1,47 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(quanteda)
+library(quanteda.textmodels)
+```
+
+
+```{r}
+sermons = read_csv("sermons_final.csv")
+```
+
+```{r}
+corp = corpus(sermons, text_field = "translated")
+```
+
+```{r}
+sermons_dfm <- 
+  dfm(corp, tolower = T, remove = stopwords(), 
+                   remove_punct =T, remove_numbers = T) %>% 
+  dfm_select(min_nchar = 3) %>% 
+  dfm_remove(c("quot", "allah", "#39", "date")) %>% 
+  dfm_trim(max_docfreq = 150, min_docfreq = 20, docfreq_type = "count")
+  
+
+``````
+
+
+```{r}
+sermons_fcm = fcm(sermons_dfm)
+feat <- names(topfeatures(sermons_fcm, 100))
+sermons_fcm_sub <- fcm_select(sermons_fcm, pattern = feat, selection = "keep")
+dim(sermons_fcm_sub)
+```
+
+```{r}
+size <- log(colSums(dfm_select(sermons_fcm_sub, feat, selection = "keep")))
+
+set.seed(57)
+textplot_network(sermons_fcm_sub, min_freq = 0.8, vertex_size = size / max(size) * 3, 
+                 vertex_labelsize = 3)
+```
+

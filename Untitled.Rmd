@@ -109,3 +109,13 @@ sermons %>%
 
 
 
+```{r}
+setwd(tempdir())
+stmBrowser(stm30, data=meta, c("casualty", "price", "ramadan"),
+                   text="translated")
+```
+
+```{r}
+#Remove files
+unlink("stm-visualization", recursive=TRUE)
+```
